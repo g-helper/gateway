@@ -1,4 +1,4 @@
-module gateway
+module github.com/g-helper/gateway
 
 go 1.22
 
