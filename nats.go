@@ -37,6 +37,8 @@ type Config struct {
 
 	// RequestTimeout
 	RequestTimeout time.Duration
+
+	Debug bool
 }
 
 // TLSConfig ...
@@ -300,6 +302,9 @@ func (js JetStream) QueueSubscribe(stream, subject, queueName string, cb nats.Ms
 
 // ClientRequest ...
 func ClientRequest[REQUEST any, RESPONSE any](subject string, req REQUEST) (RESPONSE, error) {
+	if GetServer().Config.Debug {
+		fmt.Println(fmt.Sprintf("[REQUEST] [%s] with data %v", subject, req))
+	}
 	var (
 		res RESPONSE
 	)
