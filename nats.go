@@ -310,20 +310,25 @@ func ClientRequest[REQUEST any, RESPONSE any](subject string, req REQUEST) (RESP
 		fmt.Println(fmt.Sprintf("[%s] [REQUEST] [%s] with data %v", traceId, subject, req))
 	}
 	var (
-		res RESPONSE
+		res     RESPONSE
+		natsRes NatsResponse
 	)
 	msg, err := GetServer().Request(subject, ToBytes(req))
 	if err != nil {
 		return res, err
 	}
 	if GetServer().Config.Debug {
-		fmt.Println(fmt.Sprintf("[%s] [PROCESS] [%s] with data %v", traceId, subject, string(msg.Data)))
+		fmt.Println(fmt.Sprintf("[%s] [RECEIVED] [%s] with data %v", traceId, subject, string(msg.Data)))
 	}
-	if err = json.Unmarshal(msg.Data, &res); err != nil {
+	if err = json.Unmarshal(msg.Data, &natsRes); err != nil {
+		return res, err
+	}
+
+	if err = json.Unmarshal(natsRes.Data, &res); err != nil {
 		return res, err
 	}
 	if GetServer().Config.Debug {
-		fmt.Println(fmt.Sprintf("[%s] [REPLY] [%s] with data %v", traceId, subject, string(msg.Data)))
+		fmt.Println(fmt.Sprintf("[%s] [RESPONSE] [%s] with data %v", traceId, subject, string(msg.Data)))
 	}
 	return res, nil
 }
