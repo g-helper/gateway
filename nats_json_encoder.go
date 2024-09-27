@@ -14,10 +14,7 @@ type JSONEncoder struct {
 }
 
 // Subscribe ...
-func (e *JSONEncoder) Subscribe(subject string, cb nats.Handler, isUseNameSpace bool) (*nats.Subscription, error) {
-	if isUseNameSpace {
-		subject = e.getSubject(subject)
-	}
+func (e *JSONEncoder) Subscribe(subject string, cb nats.Handler) (*nats.Subscription, error) {
 	sub, err := e.encConn.Subscribe(subject, cb)
 	if err != nil {
 		log.Printf("natsio.JSONEncoder.Subscribe err: %v\n", err)
@@ -28,11 +25,8 @@ func (e *JSONEncoder) Subscribe(subject string, cb nats.Handler, isUseNameSpace 
 }
 
 // QueueSubscribe ...
-func (e *JSONEncoder) QueueSubscribe(subject string, cb nats.Handler, isUseNameSpace bool) (*nats.Subscription, error) {
-	if isUseNameSpace {
-		subject = e.getSubject(subject)
-	}
-	sub, err := e.encConn.QueueSubscribe(subject, subject, cb)
+func (e *JSONEncoder) QueueSubscribe(subject string, queue string, cb nats.Handler) (*nats.Subscription, error) {
+	sub, err := e.encConn.QueueSubscribe(subject, queue, cb)
 	if err != nil {
 		log.Printf("natsio.JSONEncoder.QueueSubscribe err: %v\n", err)
 	} else {
@@ -46,23 +40,8 @@ func (e *JSONEncoder) Publish(reply string, data interface{}) error {
 	return e.encConn.Publish(reply, data)
 }
 
-// RequestWithSpecNameSpace ...
-func (e *JSONEncoder) RequestWithSpecNameSpace(subject string, data interface{}, res interface{}, ns string) error {
-	if ns != "" {
-		subject = ns + ":" + subject
-	}
-	err := e.encConn.Request(subject, data, res, e.config.RequestTimeout)
-	if errors.Is(err, nats.ErrNoResponders) {
-		log.Printf("[NATS SERVER]: request - no responders for subject: %s", subject)
-	}
-	return err
-}
-
 // Request ...
 func (e *JSONEncoder) Request(subject string, data interface{}, res interface{}, isUseNameSpace bool) error {
-	if isUseNameSpace {
-		subject = e.getSubject(subject)
-	}
 	err := e.encConn.Request(subject, data, res, e.config.RequestTimeout)
 	if errors.Is(err, nats.ErrNoResponders) {
 		log.Printf("[NATS SERVER]: request - no responders for subject: %s", subject)
@@ -89,11 +68,4 @@ func (e *JSONEncoder) response(reply string, data interface{}, err error) {
 		res.Error = err.Error()
 	}
 	e.encConn.Publish(reply, res)
-}
-
-func (e *JSONEncoder) getSubject(sub string) string {
-	if e.config.Namespace == "*" {
-		return sub
-	}
-	return e.config.Namespace + ":" + sub
 }

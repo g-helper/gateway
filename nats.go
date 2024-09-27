@@ -1,6 +1,7 @@
 package gateway
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"time"
@@ -22,9 +23,6 @@ type JetStream struct {
 
 // Config ...
 type Config struct {
-	// Namespace of client used, ex: mbbank, vpbank, ...
-	Namespace string
-
 	// Connect url
 	URL string
 
@@ -60,9 +58,6 @@ var (
 
 // Connect ...
 func Connect(cfg Config) error {
-	if cfg.Namespace == "" {
-		return errors.New("natsio: namespace is required")
-	}
 	if cfg.URL == "" {
 		return errors.New("natsio: connect URL is required")
 	}
@@ -299,4 +294,21 @@ func (js JetStream) QueueSubscribe(stream, subject, queueName string, cb nats.Ms
 		return errors.New(msg)
 	}
 	return nil
+}
+
+// CLIENT ...
+
+// ClientRequest ...
+func ClientRequest[REQUEST any, RESPONSE any](subject string, req REQUEST) (RESPONSE, error) {
+	var (
+		res RESPONSE
+	)
+	msg, err := GetServer().Request(subject, ToBytes(req))
+	if err != nil {
+		return res, err
+	}
+	if err = json.Unmarshal(msg.Data, &res); err != nil {
+		return res, err
+	}
+	return res, nil
 }

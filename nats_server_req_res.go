@@ -18,7 +18,6 @@ func (sv *Nats) Request(subject string, payload []byte) (*nats.Msg, error) {
 	if sv.Config.RequestTimeout > 0 {
 		timeout = sv.Config.RequestTimeout
 	}
-	subject = sv.Config.Namespace + subject
 	msg, err := sv.instance.Request(subject, payload, timeout)
 	if errors.Is(err, nats.ErrNoResponders) {
 		log.Printf("[NATS SERVER]: request - no responders for subject: %s", subject)
@@ -26,39 +25,11 @@ func (sv *Nats) Request(subject string, payload []byte) (*nats.Msg, error) {
 	return msg, err
 }
 
-// RequestWithNS ...
-func (sv *Nats) RequestWithNS(subject string, withNS bool, payload []byte) (*nats.Msg, error) {
-	if withNS {
-		subject = sv.Config.Namespace + subject
-	}
-	timeout := requestTimeout
-	if sv.Config.RequestTimeout > 0 {
-		timeout = sv.Config.RequestTimeout
-	}
-	msg, err := sv.instance.Request(subject, payload, timeout)
-	if errors.Is(err, nats.ErrNoResponders) {
-		log.Printf("[NATS SERVER]: request - no responders for subject: %s", subject)
-	}
-	return msg, err
-}
-
-func (sv *Nats) PublishWithNameSpace(sub string, nameSpace string, payload []byte) error {
-	sub = nameSpace + sub
-	fmt.Println("Publish to -> ", sub)
+func (sv *Nats) Publish(sub string, payload []byte) error {
 	return sv.instance.Publish(sub, payload)
 }
 
-func (sv *Nats) Publish(sub string, withNS bool, payload []byte) error {
-	if withNS {
-		sub = sv.Config.Namespace + sub
-	}
-	return sv.instance.Publish(sub, payload)
-}
-
-func (sv *Nats) PublishRequest(sub, reply string, withNS bool, data []byte) error {
-	if withNS {
-		sub = sv.Config.Namespace + sub
-	}
+func (sv *Nats) PublishRequest(sub, reply string, data []byte) error {
 	return sv.instance.PublishRequest(sub, reply, data)
 }
 
@@ -67,11 +38,26 @@ func (sv *Nats) Reply(msg *nats.Msg, payload []byte) error {
 	return sv.instance.Publish(msg.Reply, payload)
 }
 
-// Subscribe ...
-func (sv *Nats) Subscribe(subject string, withNS bool, cb nats.MsgHandler) (*nats.Subscription, error) {
-	if withNS {
-		subject = sv.Config.Namespace + subject
+// Response ...
+func (sv *Nats) Response(msg *nats.Msg, payload interface{}, message string) error {
+	res := NatsResponse{
+		Success: false,
+		Message: message,
+		Data:    nil,
 	}
+	if message == "" {
+		res.Success = true
+		res.Data = ToBytes(payload)
+	}
+	err := sv.Reply(msg, ToBytes(res))
+	if err != nil {
+		fmt.Println("[ERROR] Response : ", err.Error())
+	}
+	return err
+}
+
+// Subscribe ...
+func (sv *Nats) Subscribe(subject string, cb nats.MsgHandler) (*nats.Subscription, error) {
 	sub, err := sv.instance.Subscribe(subject, cb)
 	if err != nil {
 		msg := fmt.Sprintf("[NATS SERVER] - subscribe subject %s error: %s", subject, err.Error())
@@ -85,10 +71,7 @@ func (sv *Nats) SubscribeSync() (*nats.Subscription, error) {
 }
 
 // QueueSubscribe ...
-func (sv *Nats) QueueSubscribe(subject, queue string, withNS bool, cb nats.MsgHandler) (*nats.Subscription, error) {
-	if withNS {
-		subject = sv.Config.Namespace + subject
-	}
+func (sv *Nats) QueueSubscribe(subject, queue string, cb nats.MsgHandler) (*nats.Subscription, error) {
 	sub, err := sv.instance.QueueSubscribe(subject, queue, cb)
 	if err != nil {
 		msg := fmt.Sprintf("[NATS SERVER] - queue subscribe subject %s, error: %s", subject, err.Error())
@@ -109,12 +92,4 @@ func (sv *Nats) NewJSONEncodedConn() (*JSONEncoder, error) {
 		encConn: enc,
 		config:  sv.Config,
 	}, nil
-}
-
-func (sv *Nats) SetNamespace(ns string) error {
-	if ns == "" {
-		return fmt.Errorf("nats: namespace can not empty")
-	}
-	sv.Config.Namespace = ns
-	return nil
 }
