@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/nats-io/nats.go"
 	"github.com/thoas/go-funk"
 )
@@ -302,8 +303,11 @@ func (js JetStream) QueueSubscribe(stream, subject, queueName string, cb nats.Ms
 
 // ClientRequest ...
 func ClientRequest[REQUEST any, RESPONSE any](subject string, req REQUEST) (RESPONSE, error) {
+	var (
+		traceId = uuid.New().String()
+	)
 	if GetServer().Config.Debug {
-		fmt.Println(fmt.Sprintf("[REQUEST] [%s] with data %v", subject, req))
+		fmt.Println(fmt.Sprintf("[%s] [REQUEST] [%s] with data %v", traceId, subject, req))
 	}
 	var (
 		res RESPONSE
@@ -312,8 +316,14 @@ func ClientRequest[REQUEST any, RESPONSE any](subject string, req REQUEST) (RESP
 	if err != nil {
 		return res, err
 	}
+	if GetServer().Config.Debug {
+		fmt.Println(fmt.Sprintf("[%s] [PROCESS] [%s] with data %v", traceId, subject, string(msg.Data)))
+	}
 	if err = json.Unmarshal(msg.Data, &res); err != nil {
 		return res, err
+	}
+	if GetServer().Config.Debug {
+		fmt.Println(fmt.Sprintf("[%s] [REPLY] [%s] with data %v", traceId, subject, string(msg.Data)))
 	}
 	return res, nil
 }
