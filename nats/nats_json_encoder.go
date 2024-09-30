@@ -1,4 +1,4 @@
-package gateway
+package nats
 
 import (
 	"errors"
